@@ -1,5 +1,7 @@
 * PyEx Project
 
+[[./pages/assets/images/elixir_less_three_python.png]]
+
 You already know how to build /scalable/ and /fault tolerant/ systems with
 Elixir, but have you thought about making them /smarter/? Machine Learning is
 this exciting area in IT we hear about great successes, and this builds curiosity
