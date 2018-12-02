@@ -26,4 +26,4 @@ experimenting with this approach.
 
 ** Pages
 
-- [[file:pages/FIRST.org][First]]
+- [[file:pages/FIRST.org][Getting Started]]
