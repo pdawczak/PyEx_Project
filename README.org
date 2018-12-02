@@ -1,0 +1,27 @@
+* PyEx Project
+
+You already know how to build /scalable/ and /fault tolerant/ systems with
+Elixir, but have you thought about making them /smarter/? Machine Learning is
+this exciting area in IT we hear about great successes, and this builds curiosity
+to explore what it can do. Unfortunately, this area is dominated by Python and R,
+the technologies, that are foreign to BEAM based languages...
+
+I've raised this question - would that be possible to train the Machine Learning
+models and still, make them available to Elixir programs in a way it would feel
+more native to the programs you implement?
+
+There are a few ways of deploying Machine Learning models, and here, I'll spend
+some time trying to make them work with the Elixir as it was part of Elixir
+program itself.
+
+Finally, enabling the "native BEAM feel" to parts of Python program, will allow
+designing around the boundaries of the system using tools we already know and
+use - monitoring and linking the precesses and nodes are powerful, and serve
+great when we want to build highly available systems.
+
+Join me in this exciting journey. I hope you'll have as much fun as I had
+experimenting with this approach.
+
+** Pages
+
+- [[file:pages/FIRST.org][First]]
