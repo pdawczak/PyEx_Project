@@ -3,7 +3,7 @@
 ** If GenServer was OO
 
 [[file:FIRST.org][Previously]] we have set up the environment and managed to Elixir to talk to Python
-and we are in good position to take next step 0 let's create new Python script -
+and we are in good position to take next step - let's create new Python script -
 =py_app/second.py=; first, imports:
 
 #+BEGIN_SRC python
