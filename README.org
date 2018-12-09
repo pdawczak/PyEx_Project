@@ -27,3 +27,4 @@ experimenting with this approach.
 ** Pages
 
 - [[file:pages/FIRST.org][Getting Started]]
+- [[file:pages/SECOND.org][Getting Excited]]
