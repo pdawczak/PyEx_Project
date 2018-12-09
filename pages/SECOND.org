@@ -1,0 +1,366 @@
+* Elixir <3 Python #2: Getting excited
+
+** If GenServer was OO
+
+[[file:FIRST.org][Previously]] we have set up the environment and managed to Elixir to talk to Python
+and we are in a good position to take the next step - let's create new Python
+script - =py_app/second.py=; first, imports:
+
+#+BEGIN_SRC python
+from pyrlang import Node, GeventEngine, GenServer
+from term import Atom
+#+END_SRC
+
+The process we will implement here, will have only one responsibility - receive a
+call with a string, and reply with the same string upper-cased.
+
+Let's implement the ~GenServer~ then:
+
+#+BEGIN_SRC python
+class PyGenServer(GenServer):
+    def __init__(self, node):
+        GenServer.__init__(self,
+                           node_name=node.node_name_,
+                           accepted_calls=["upperise"])
+
+        node.register_name(self, Atom("py_process"))
+
+    def upperise(self, string):
+        return string.upper()
+#+END_SRC
+
+In the constructor we will do the wiring:
+
+- Delegate to ~GenServer~ class with ~node_name~
+- Register what ~call~s it will handle by specifying ~accepted_calls~
+- Register ~self~ under ~"py_process"~ name
+
+And let's provide the implementation of the method - it will return the
+upper-cased string.
+
+Lastly, let's add ~main()~ method:
+
+#+BEGIN_SRC python
+def main():
+    eng = GeventEngine()
+    node = Node(node_name="py@127.0.0.1", cookie="PYEX", engine=eng)
+
+    PyGenServer(node)
+
+    eng.run_forever()
+
+
+if __name__ == "__main__":
+    main()
+#+END_SRC
+
+Nothing super special here - we're creating a new instance of ~PyGenServer~. This
+will complete the setup of a node.
+
+For convenience starting this node, let's update the ~Makefile~ and add the
+following entry:
+
+#+BEGIN_SRC makefile
+# Makefile
+.PHONY: start_second_python
+start_second_python:
+	$(PY) py_app/second.py
+#+END_SRC
+
+Let's give it a try:
+
+#+BEGIN_SRC sh
+$ make start_second_python
+PYTHONPATH=./Pyrlang PYRLANG_ENABLE_LOG_FORMAT=1 PYRLANG_LOG_LEVEL=DEBUG python3 py_app/second.py
+Native term ETF codec library import failed, falling back to slower Python impl
+2018-11-05 18:33:35,895 [pyrlang] gevent_engine:113: Listening on ('0.0.0.0', 0) (50840)
+2018-11-05 18:33:35,895 [pyrlang.dist] distribution:58: Listening for dist connections on port 50840
+...
+#+END_SRC
+
+All good so far!
+
+** Elixir talks to Python and hears back
+
+Let's fire up ~iex~ session:
+
+#+BEGIN_SRC sh
+$ iex --name ex@127.0.0.1 --cookie PYEX
+#+END_SRC
+
+and give the following a try:
+
+#+BEGIN_SRC elixir
+iex(ex@127.0.0.1)1> GenServer.call(receiver, {:upperise, "foo"})
+"FOO"
+#+END_SRC
+
+OK, I know what you're thinking - /yes, this is cool, but most certainly not/
+/exciting. What's the deal?/
+
+Yes, I agree - this is a small step but in good direction...
+
+Next, let's try to make Python node a bit smarter...
+
+** Python for Machine Learning
+
+Iris classification problem is a /Hello World/ in Machine Learning world.
+
+It contains data about flowers, alongside data associated with it. The problem is
+simple enough, to be able to build very first, simple classification model.
+
+Let's try to build such a model, and then, we will integrate it with Elixir.
+
+First, let's ensure you have ~pyex_env~ ~virtualenv~ enabled:
+
+#+BEGIN_SRC sh
+$ source pyex_env/bin/activate
+(pyex_env)
+#+END_SRC
+
+and install the following dependencies:
+
+#+BEGIN_SRC sh
+$ pip3 install sklearn pandas jupyter
+#+END_SRC
+
+Let's download the dataset; for the exercise, I've used [[http:https://www.kaggle.com/uciml/iris/downloads/Iris.csv/2][this link]] to obtain the
+CSV file.
+
+# https://www.kaggle.com/uciml/iris/downloads/Iris.csv/2
+
+Next, let's start Jupyter:
+
+#+BEGIN_SRC sh
+$ jupyter notebook
+#+END_SRC
+
+after the Jupyter's server start properly, it will be opened in the web browser:
+
+#+CAPTION: Main screen of Jupyter notebook
+#+NAME:    fig:main_jupyter
+[[./assets/images/main_jupyter.png]]
+
+Let's create a new notebook:
+
+#+CAPTION: Creating new Notebook
+#+NAME:    fig:new_notebook
+[[./assets/images/new_notebook.png]]
+
+Here, let's import ~pandas~, load data, and for a sanity check - let's output the
+~DataFrame~ for brief inspection:
+
+#+CAPTION: Loading data
+#+NAME:    fig:notebook_01
+[[./assets/images/notebook_01.png]]
+
+Looks like we have accessed the data properly!
+
+For convenience, let's assign different "slices" of data for easier access.
+
+By convention, the features that will form an input for our Machine Learning
+model will be called ~X~, and ~labels~ (values we want our model to predict) will
+be ~y~.
+
+#+CAPTION: Slicing data, step 1
+#+NAME:    fig:notebook_02
+[[./assets/images/notebook_02.png]]
+
+#+CAPTION: Slicing data, step 2
+#+NAME:    fig:notebook_03
+[[./assets/images/notebook_03.png]]
+
+This looks good!
+
+Now, when we have our variables set, we can start training our model - let's
+import first model, and ~fit~ the variables in. This is, when the model gets
+trained:
+
+#+CAPTION: Training the model
+#+NAME:    fig:notebook_04
+[[./assets/images/notebook_04.png]]
+
+And now, this is the most exciting moment - did it learn anything form the data?
+I've checked the CSV, and picked two examples. I'll let the model predict the
+values for me:
+
+#+CAPTION: Predicting
+#+NAME:    fig:notebook_05
+[[./assets/images/notebook_05.png]]
+
+Yes! These labels indeed are associated with the data!
+
+Let's export the trained model from Juputer Notebook, so we can load it in our
+Python node.
+
+For this, we will use ~pickle~ format:
+
+#+CAPTION: Exporting trained model
+#+NAME:    fig:notebook_06
+[[./assets/images/notebook_06.png]]
+
+** Loading the Model in Python
+
+Given the model has been serialised to ~pickle~ format, we are able to
+deserialise it in "pure" Python script.
+
+Let's do the following - first, import ~pickle~:
+
+#+BEGIN_SRC python
+import json
+#+END_SRC
+
+next, change the constructor:
+
+#+BEGIN_SRC python
+    def __init__(self, node):
+        GenServer.__init__(self,
+                           node_name=node.node_name_,
+                           accepted_calls=["classify"])                # 1
+
+        node.register_name(self, Atom("py_process"))
+
+        self.model = pickle.load(open("./ML/iris_model.pickle", "rb")) # 2
+#+END_SRC
+
+1. Our ~GenServer~ will handle call ~classify~, which will use our trained model
+2. We are loading the serialised model
+
+Next, let's implement ~classify~ method
+
+/NOTE: Unfortunately, at the time of writing this post, ~Pyrlang~ doesn't/
+/implement full and proper serialisation and deserialisation of ETF (External/
+/Term Format), a format, that is used by Erlang to serialise data sent between/
+/nodes. To avoid this problem, I'll serialise my data to JSON, but once issues/
+/in ~Pyrlang~ are addressed, this could be reverted./
+
+Firstly, let's import ~json~:
+
+#+BEGIN_SRC python
+import json
+#+END_SRC
+
+next, the method itself:
+
+#+BEGIN_SRC python
+    def classify(self, encoded_params_to_classify):                  # 1
+        params_to_classify = json.loads(encoded_params_to_classify)  # 2
+        classification = self.model.predict([params_to_classify])[0] # 3
+        encoded_classification = json.dumps(classification)          # 4
+        return encoded_classification
+#+END_SRC
+
+1. We're implementing ~classify~ method, which will accept
+   ~encoded_params_to_classify~. These will be encoded in JSON
+2. Decoding the parameters
+3. The model is able to perform classification over a list of inputs, and as
+   such, it returns a list of results. In this exercise we will classify only
+   a single set of data, hence, will will access the record the first element
+   from the result
+4. We have to serialise the value to JSON before returning it
+
+** The Elixir side
+
+First, let's create a fresh new Elixir project:
+
+#+BEGIN_SRC sh
+$ mix new ex
+#+END_SRC
+
+Next, add ~Jason~ dependency in ~mix.exs~, we will use it for JSON encoding:
+
+#+BEGIN_SRC elixir
+# mix.exs
+  defp deps do
+    [
+      {:jason, "~> 1.1"}
+    ]
+  end
+#+END_SRC
+
+and issue the command:
+
+#+BEGIN_SRC sh
+$ mix deps.get
+#+END_SRC
+
+to install the dependencies.
+
+Next, let's implement a function that will call corresponding process in Python
+node:
+
+#+BEGIN_SRC elixir
+defmodule Ex do
+  def classify(params_to_classify) do
+    receiver = {:py_process, :"py@127.0.0.1"}                  # 1
+
+    encoded_params_to_classify =                               # 2
+      Jason.encode!([
+        params_to_classify.sepal_length,
+        params_to_classify.sepal_width,
+        params_to_classify.petal_length,
+        params_to_classify.petal_width
+      ])
+
+    receiver
+    |> GenServer.call({:classify, encoded_params_to_classify}) # 3
+    |> Jason.decode!()                                         # 4
+  end
+end
+#+END_SRC
+
+1. This defines a reference to specific process in the ~:"py@127.0.0.1"~ node
+2. Transform a map of values to a list of parameters, and encode it to JSON
+3. Send the ~call~ to the process with the params
+4. Decode the JSON response
+
+** Trying it all together
+
+*** Python side
+
+Given we have a corresponding entry in ~Makefile~ defined already, in one terminal
+window issue the command:
+
+#+BEGIN_SRC sh
+$ make start_second_python
+#+END_SRC
+
+*** Elixir side
+
+In another terminal window start Elixir node:
+
+#+BEGIN_SRC sh
+$ iex --name ex@127.0.0.1 --cookie PYEX -S mix
+#+END_SRC
+
+Once this completes, let's issue the following:
+
+#+BEGIN_SRC elixir
+iex(ex@127.0.0.1)1> params_to_classify = %{sepal_length: 5.1, sepal_width: 3.5, petal_length: 1.4, petal_width: 0.2}
+iex(ex@127.0.0.1)2> Ex.classify(params_to_classify)
+"Iris-setosa"
+#+END_SRC
+
+#+BEGIN_SRC elixir
+iex(ex@127.0.0.1)3> params_to_classify = %{sepal_length: 6.3, sepal_width: 2.8, petal_length: 5.1, petal_width: 1.5}
+iex(ex@127.0.0.1)4> Ex.classify(params_to_classify)
+"Iris-virginica"
+#+END_SRC
+
+** What's happened
+
+We managed to create a process in Python node, that was responding to calls.
+We have trained our first Machine Learning model, and finally, we managed to
+load the model into our Python code. This allowed our Elixir application to
+interact with it the way it didn't know the node it sends messages to, and
+receives messages from, isn't Elixir, or any other BEAM based language.
+
+I don't know about you, but for me this is extremely exciting - we were able to
+make our program to classify numeric values, all without a single ~if~ statement!
+Computer was able to learn the classification rules by providing it the data set
+only!
+
+/Today, it only predicts flowers, but tomorrow it might be the engine that will/
+/recommend your next car, or predict the price you'll sell your house for!/
+
+The code is available [[https://github.com/pdawczak/PyEx_Project][here]].
